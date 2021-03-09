@@ -69,9 +69,9 @@ class TimeCheckingClassLoaderCache implements AbstractClassLoaderCache {
         }
     }
 
-    public TimeCheckingClassLoaderCache(int maxSize) {
+    public TimeCheckingClassLoaderCache() {
         commonParent = new URLClassLoader(new URL[0]);
-        cache = new GuavaBackedClassLoaderCache<>(maxSize);
+        cache = new GuavaBackedClassLoaderCache<>();
     }
 
     @Override

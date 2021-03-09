@@ -57,9 +57,7 @@ import static org.gradle.cache.internal.filelock.LockOptionsBuilder.mode;
 
 public class ZincScalaCompilerFactory {
     private static final Logger LOGGER = Logging.getLogger(ZincScalaCompilerFactory.class);
-    private static final int CLASSLOADER_CACHE_SIZE = 4;
-    private static final int COMPILER_CLASSLOADER_CACHE_SIZE = 4;
-    private static final GuavaBackedClassLoaderCache<HashCode> CLASSLOADER_CACHE = new GuavaBackedClassLoaderCache<HashCode>(CLASSLOADER_CACHE_SIZE);
+    private static final GuavaBackedClassLoaderCache<HashCode> CLASSLOADER_CACHE = new GuavaBackedClassLoaderCache<HashCode>();
     private static final ClassLoaderCache COMPILER_CLASSLOADER_CACHE;
 
     static {
@@ -77,7 +75,7 @@ public class ZincScalaCompilerFactory {
         if (checkingClass != null) {
             try {
                 Constructor<ClassLoaderCache> constructor = ClassLoaderCache.class.getConstructor(abstractCacheClass);
-                Object cache = checkingClass.getConstructors()[0].newInstance(COMPILER_CLASSLOADER_CACHE_SIZE);
+                Object cache = checkingClass.getConstructors()[0].newInstance();
                 COMPILER_CLASSLOADER_CACHE = constructor.newInstance(cache);
             } catch (Exception e) {
                 throw new RuntimeException("Failed to instantiate ClassLoaderCache", e);

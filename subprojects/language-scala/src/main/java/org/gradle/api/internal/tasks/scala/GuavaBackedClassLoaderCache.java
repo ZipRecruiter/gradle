@@ -34,10 +34,10 @@ public class GuavaBackedClassLoaderCache<K> implements AutoCloseable {
     private final Cache<K, ClassLoader> cache;
 
 
-    public GuavaBackedClassLoaderCache(int maxSize) {
+    public GuavaBackedClassLoaderCache() {
         cache = CacheBuilder
             .newBuilder()
-            .maximumSize(maxSize)
+            .softValues()
             .removalListener(new RemovalListener<K, ClassLoader>() {
                 @Override
                 public void onRemoval(RemovalNotification<K, ClassLoader> notification) {
