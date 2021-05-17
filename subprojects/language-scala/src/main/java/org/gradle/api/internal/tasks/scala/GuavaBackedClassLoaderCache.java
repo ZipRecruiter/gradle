@@ -17,11 +17,14 @@
 package org.gradle.api.internal.tasks.scala;
 
 
+import com.google.common.base.FinalizablePhantomReference;
+import com.google.common.base.FinalizableReferenceQueue;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.RemovalListener;
-import com.google.common.cache.RemovalNotification;
+import com.google.common.collect.Sets;
 
+import java.lang.ref.Reference;
+import java.util.Set;
 import java.util.concurrent.Callable;
 
 /**
@@ -33,29 +36,47 @@ import java.util.concurrent.Callable;
 public class GuavaBackedClassLoaderCache<K> implements AutoCloseable {
     private final Cache<K, ClassLoader> cache;
 
+    private static final FinalizableReferenceQueue frq = new FinalizableReferenceQueue();
+    private static final Set<Reference<ClassLoader>> references = Sets.newConcurrentHashSet();
 
     public GuavaBackedClassLoaderCache() {
         cache = CacheBuilder
             .newBuilder()
             .softValues()
-            .removalListener(new RemovalListener<K, ClassLoader>() {
-                @Override
-                public void onRemoval(RemovalNotification<K, ClassLoader> notification) {
-                    ClassLoader value = notification.getValue();
-                    if (value instanceof AutoCloseable) {
-                        try {
-                            ((AutoCloseable) value).close();
-                        } catch(Exception ex) {
-                            throw new RuntimeException("Failed to close classloader", ex);
-                        }
-                    }
-                }
-            })
             .build();
     }
 
     public ClassLoader get(K key, Callable<ClassLoader> loader) throws Exception {
-        return cache.get(key, loader);
+        return cache.get(key, new Callable<ClassLoader>() {
+            @Override
+            public ClassLoader call() throws Exception {
+                ClassLoader cl = loader.call();
+
+                // Add a class loader finalizer using phantom reference
+                FinalizablePhantomReference<ClassLoader> fpr = new FinalizablePhantomReference<ClassLoader>(cl, frq) {
+                    @Override
+                    public void finalizeReferent() {
+                        // allow the finalizer to get garbage collected
+                        references.remove(this);
+
+                        System.err.println("DEBUG::: CLOSING CLASSLOADER !!!");
+
+                        // class loader finalizer
+                        if (cl instanceof AutoCloseable) {
+                            try {
+                                ((AutoCloseable) cl).close();
+                            } catch(Exception ex) {
+                                throw new RuntimeException("Failed to close classloader", ex);
+                            }
+                        }
+                    }
+                };
+                // prevent the finalizer from getting garbage collected
+                references.add(fpr);
+
+                return cl;
+            }
+        });
     }
 
     public void clear() {
